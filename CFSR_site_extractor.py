@@ -100,9 +100,13 @@ class SoilSite(object):
         nc.site = self.name
         nc.site_latitude = self.lat
         nc.site_longitude = self.lon
+        nc.T382_x = self.T382_lonidx
+        nc.T382_y = self.T382_latidx
         nc.description = ('NCEP Climate Forecast System Reanalysis hourly 5'
                           ' cm soil temperature (Tsoil) and volumetric water'
-                          ' content (VWC)')
+                          ' content (VWC).  T382_x and T382_y are the site''s'
+                          ' x and y indices in the CFSR T382 grid (see '
+                          'Saha, et al (2010), table 1).')
         nc.citation = 'Saha, S., S. Moorthi, H.-L. Pan, X. Wu, J. Wang, S. Nadiga, P. Tripp, R. Kistler, J. Woollen, D. Behringer, H. Liu, D. Stokes, R. Grumbine, G. Gayno, J. Wang, Y.-T. Hou, H.-Y. Chuang, H.-M. H. Juang, J. Sela, M. Iredell, R. Treadon, D. Kleist, P. Van Delst, D. Keyser, J. Derber, M. Ek, J. Meng, H. Wei, R. Yang, S. Lord, H. Van Den Dool, A. Kumar, W. Wang, C. Long, M. Chelliah, Y. Xue, B. Huang, J.-K. Schemm, W. Ebisuzaki, R. Lin, P. Xie, M. Chen, S. Zhou, W. Higgins, C.-Z. Zou, Q. Liu, Y. Chen, Y. Han, L. Cucurull, R. W. Reynolds, G. Rutledge, and M. Goldberg (2010), The NCEP Climate Forecast System Reanalysis, Bulletin of the American Meteorological Society, 91(8), 1015-1057, doi:10.1175/2010BAMS3001.1.'
 
         nc.variables['tstamp'].description = 'time stamp'
@@ -172,7 +176,7 @@ class Nomads_CFSR_HourlyTS(object):
         t0 = datetime.datetime.now()
         sys.stdout.write('reading {}'.format(self.varname_nc))
         sys.stdout.flush()
-        data = nc.variables[self.varname_nc][:, depth_layer, lat_idx, lon_idx]
+        data = nc.variables[self.varname_nc][1:5, depth_layer, lat_idx, lon_idx]
         sys.stdout.write('...done ({} s)\n'.format(
             (datetime.datetime.now() - t0).seconds))
         sys.stdout.flush()
@@ -215,26 +219,12 @@ if __name__ == "__main__":
     sites = [SoilSite(*k) for k in zip(names, lats, lons)]
     sites = [s.get_T382_idx(T382_lon, T382_lat) for s in sites]
 
-    vwc = Nomads_CFSR_HourlyTS(2008, 12,
-                               'soilm1',
-                               'Volumetric_Soil_Moisture_Content')
-    Tsoil = Nomads_CFSR_HourlyTS(2008, 12,
-                                 'soilt1',
-                                 'Temperature')
-    # vwc.read(sites[0].T382_lonidx, sites[0].T382_latidx)
-    # Tsoil.read(sites[0].T382_lonidx, sites[0].T382_latidx)
+    all_months = pd.DatetimeIndex(freq=pd.tseries.offsets.MonthBegin(),
+                                  start=datetime.datetime(2008, 1, 1, 0, 0, 0),
+                                  end=datetime.datetime(2010, 7, 14))
 
-    dtidx = pd.DatetimeIndex(freq=pd.tseries.offsets.MonthBegin(),
-                             start=datetime.datetime(2008, 1, 1, 0, 0, 0),
-                             end=datetime.datetime(2010, 7, 14))
+    sites = [s.get_data(dt.year, dt.month) for s in sites for dt in all_months]
 
-    sites[0].get_data(2008, 10)
-    sites[0].get_data(2008, 11)
-    sites[0].data_2_netcdf('test.nc')
-
-    # time = '200912'
-    # url_VWC = Nomads_CFSR_HourlyTS_URL(time, 'soilm1')
-    # url_Tsoil = Nomads_CFSR_HourlyTS_URL(time, 'soilt1')
-
-    # ncVWC = read_URL(url_VWC.get_URL())
-    # ncTsoil = read_URL(url_Tsoil.get_URL())
+    # sites[0].get_data(2008, 10)
+    # sites[0].get_data(2008, 11)
+    # sites[0].data_2_netcdf('test.nc')
