@@ -7,6 +7,9 @@ import numpy as np
 import pandas as pd
 import datetime
 import sys
+import os.path
+import matplotlib.pyplot as plt
+import glob
 
 
 def get_T382_lon_lat():
@@ -78,13 +81,18 @@ class SoilSite(object):
             self.data = pd.concat([self.data, df])
         return(self)
 
+    def get_nc_fname(self):
+        """build a netcdf file name for the object's data"""
+        fname = '{}_Tsoil_VWC.nc'.format(self.name.replace(' ', ''))
+        return(fname)
+
     def data_2_netcdf(self, fname=None):
 
         NC_DOUBLE = 'd'  # netCDF4 specifier for NC_DOUBLE datatype
         NC_INT64 = 'i8'  # netCDF4 specifier for NC_DOUBLE datatype
 
         if fname is None:
-            fname = '{}_Tsoil_VWC.nc'.format(self.name.replace(' ', ''))
+            fname = self.get_nc_fname()
         nc = netCDF4.Dataset(fname, 'w')
         nc.createDimension('time', self.data.shape[0])
         nc.createVariable(varname='tstamp',
@@ -198,6 +206,43 @@ class Nomads_CFSR_HourlyTS(object):
         return(self)
 
 
+class soil_nc(object):
+    """make three panel plot of a site's data, from the netcdf
+    file written by data_2_netcdf"""
+
+    def __init__(self, fpath):
+        self.fpath = fpath
+
+    def read(self):
+        nc = netCDF4.Dataset(self.fpath, 'r')
+        t = nc.variables['tstamp'][:]
+        t_dt64 = (map(lambda this_t: np.timedelta64(this_t, 'h'), t) +
+                  np.datetime64('2000-01-01T00:00:00Z'))
+        VWC = nc.variables['VWC'][:]
+        Tsoil = nc.variables['Tsoil'][:]
+
+        self.data = pd.DataFrame(index=t_dt64,
+                                 data=np.dstack((VWC, Tsoil)).squeeze(),
+                                 columns=('VWC', 'Tsoil'))
+        self.site = nc.site
+        self.lat = nc.site_latitude
+        self.lon = nc.site_longitude
+        nc.close()
+        return(self)
+
+    def plot(self, ax=None):
+        # plt.style.use('fivethirtyeight')
+        df = self.data
+        df.Tsoil -= 273.15
+        ax = self.data.plot(secondary_y=['VWC'], colormap='Dark2', ax=ax)
+
+        ax.set_xlabel('date')
+        ax.set_ylabel('T$_{soil}$ (K)')
+        ax.right_ax.set_ylabel('VWC')
+        ax.set_title('{} ({} E, {} N)'.format(self.site, self.lon, self.lat))
+        return(ax)
+
+
 if __name__ == "__main__":
 
     T382_lon, T382_lat = get_T382_lon_lat()
@@ -224,13 +269,22 @@ if __name__ == "__main__":
             -70.100111]  # Peru
 
     sites = [SoilSite(*k) for k in zip(names, lats, lons)]
-    sites = [s.get_T382_idx(T382_lon, T382_lat) for s in sites]
+    # sites = [s.get_T382_idx(T382_lon, T382_lat) for s in sites]
 
-    all_months = pd.DatetimeIndex(freq=pd.tseries.offsets.MonthBegin(),
-                                  start=datetime.datetime(2000, 1, 1),
-                                  end=datetime.datetime(2009, 12, 31))
+    # all_months = pd.DatetimeIndex(freq=pd.tseries.offsets.MonthBegin(),
+    #                               start=datetime.datetime(2000, 1, 1),
+    #                               end=datetime.datetime(2009, 12, 31))
 
-    for s in sites:
-        for this_date in all_months:
-            s.get_data(this_date.year, this_date.month)
-            s.data_2_netcdf()
+    # for s in sites:
+    #     for this_date in all_months:
+    #         s.get_data(this_date.year, this_date.month)
+    #         s.data_2_netcdf()
+
+    all_files = glob.glob(os.path.join('/Users/tim/work/Data',
+                                       '2015-03-23_CFSR_Soil_Data/*.nc'))
+    fig, ax = plt.subplots(nrows=len(all_files), ncols=1, figsize=(8, 24))
+    for i, this_file in enumerate(all_files):
+        nc = soil_nc(this_file)
+        nc.read()
+        nc.plot(ax=ax[i])
+    fig.savefig('soil_data.pdf')
