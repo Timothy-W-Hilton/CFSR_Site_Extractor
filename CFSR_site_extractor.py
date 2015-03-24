@@ -176,10 +176,17 @@ class Nomads_CFSR_HourlyTS(object):
         t0 = datetime.datetime.now()
         sys.stdout.write('reading {}'.format(self.varname_nc))
         sys.stdout.flush()
-        data = nc.variables[self.varname_nc][1:5, depth_layer, lat_idx, lon_idx]
-        sys.stdout.write('...done ({} s)\n'.format(
-            (datetime.datetime.now() - t0).seconds))
-        sys.stdout.flush()
+        try:
+            data = nc.variables[self.varname_nc][:, depth_layer,
+                                                 lat_idx, lon_idx]
+            sys.stdout.write('...done ({} s, {})\n'.format(
+                (datetime.datetime.now() - t0).seconds,
+                datetime.datetime.now()))
+            sys.stdout.flush()
+        except UnboundLocalError:
+            print "unable to read {}".format(URL)
+            self.data = pd.DataFrame(None)
+            return(self)
         self.data = pd.DataFrame(
             data,
             index=pd.DatetimeIndex(freq='1H',
@@ -220,11 +227,10 @@ if __name__ == "__main__":
     sites = [s.get_T382_idx(T382_lon, T382_lat) for s in sites]
 
     all_months = pd.DatetimeIndex(freq=pd.tseries.offsets.MonthBegin(),
-                                  start=datetime.datetime(2008, 1, 1, 0, 0, 0),
-                                  end=datetime.datetime(2010, 7, 14))
+                                  start=datetime.datetime(2000, 1, 1),
+                                  end=datetime.datetime(2009, 12, 31))
 
-    sites = [s.get_data(dt.year, dt.month) for s in sites for dt in all_months]
-
-    # sites[0].get_data(2008, 10)
-    # sites[0].get_data(2008, 11)
-    # sites[0].data_2_netcdf('test.nc')
+    for s in sites:
+        for this_date in all_months:
+            s.get_data(this_date.year, this_date.month)
+            s.data_2_netcdf()
