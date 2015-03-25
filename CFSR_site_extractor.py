@@ -39,6 +39,38 @@ import matplotlib.pyplot as plt
 import glob
 
 
+def get_T382_land_mask():
+    """return the latitude and longitde vectors for the CFSR Guassian T382
+    grid (Saha et al (2010), table 1).  The mask is read from the July
+    2008 6-houlry forecast for hour 0 (selected arbitrarily).
+
+    From this FAQ (http://rda.ucar.edu/datasets/ds093.0/#docs/FAQs_6hrly.html):
+
+    --------------------------------------------------
+    - Where is the land/sea mask in CFSR?
+
+    The land/sea mask is stored in the grid for parameter 'Land
+    cover'. Values of '1' indicate land and '0' indicate water. Note:
+    There is no land/sea mask data in the hourly time series dataset
+    (because the mask does not change with time). You will need to
+    obtain the land/sea mask from the main 6-hourly products dataset.
+    --------------------------------------------------
+
+
+    """
+
+    URL = ('http://nomads.ncdc.noaa.gov/thredds/dodsC/modeldata/cmd_flxf'
+           '/2008/200807/20080701/flxf01.gdas.2008070100.grb2')
+    try:
+        nc = netCDF4.Dataset(URL)
+        LS_mask = nc.variables['Land_cover_1land_2sea'][...]
+        nc.close()
+        return(LS_mask)
+    except RuntimeError:
+        sys.stderr.write('error reading land-sea mask')
+        sys.stderr.flush()
+
+
 def get_T382_lon_lat():
     """return the latitude and longitde vectors for the CFSR Guassian
     T382 grid (Saha et al (2010), table 1).  The coordinates are read
@@ -80,8 +112,8 @@ class SoilSite(object):
         return('{} ({}, {}), ({}, {})'.format(self.name,
                                               self.lon,
                                               self.lat,
-                                              self.T382_x,
-                                              self.T382_y))
+                                              self.T382_lonidx,
+                                              self.T382_latidx))
 
     def get_T382_idx(self, T382_lon, T382_lat):
         """find the x and y indices for the site's latitude and longitude in
@@ -254,7 +286,7 @@ class Nomads_CFSR_HourlyTS(object):
         sys.stdout.write('reading {}'.format(self.varname_nc))
         sys.stdout.flush()
         try:
-            data = nc.variables[self.varname_nc][:5, depth_layer,   # CHANGE
+            data = nc.variables[self.varname_nc][:, depth_layer,
                                                  lat_idx, lon_idx]
             sys.stdout.write('...done ({} s, {})\n'.format(
                 (datetime.datetime.now() - t0).seconds,
@@ -320,7 +352,7 @@ def get_data(sites, start_year=2000, end_year=2009):
     """
     all_months = pd.DatetimeIndex(freq=pd.tseries.offsets.MonthBegin(),
                                   start=datetime.datetime(start_year, 1, 1),
-                                  end=datetime.datetime(end_year, 12, 31))  # CHANGE
+                                  end=datetime.datetime(end_year, 12, 31))
 
     for s in sites:
         for this_date in all_months:
@@ -372,6 +404,11 @@ if __name__ == "__main__":
 
     sites = [SoilSite(*k) for k in zip(names, lats, lons)]
     sites = [s.get_T382_idx(T382_lon, T382_lat) for s in sites]
+
+    # Stunt Ranch is 4 miles inland of the Pacific Coast, and happens
+    # to fall in a CFSR water cell.  Adjust its longitude index one to
+    # the East so that it fall on land.
+    sites[1].T382_lonidx += 1
 
     get_data(sites)
     plot_data()
