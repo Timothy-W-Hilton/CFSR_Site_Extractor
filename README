@@ -1,0 +1,29 @@
+This python module reads 5 cm soil temperature (Tsoil) and volumetric
+water content (VWC) from the Climate Forecast System (CFS) Version 2
+(CFSv2) Reanalysis (CFSR; Saha et al (2010)).  Data are read for the
+CFSR grid cells containing specified longitude and latitude
+coordinates.  The data are read from the NOAA NOMADS system
+(http://nomads.ncdc.noaa.gov/) via web connection.
+
+The data are written to netcdf files, one file per location.
+
+The "__main__" script defines the locations whose grid cells are to be
+read, reads the data, writes the netcdf files, and produces a plot of
+each time series read.
+
+Author: Timothy W. Hilton, UC Merced  <thilton@ucmerced.edu>
+Date: 24 March 2015
+
+REFERENCES
+
+Saha, S., S. Moorthi, H.-L. Pan, X. Wu, J. Wang, S. Nadiga, P. Tripp,
+R. Kistler, J. Woollen, D. Behringer, H. Liu, D. Stokes, R. Grumbine,
+G. Gayno, J. Wang, Y.-T. Hou, H.-Y. Chuang, H.-M. H. Juang, J. Sela,
+M. Iredell, R. Treadon, D. Kleist, P. Van Delst, D. Keyser, J. Derber,
+M. Ek, J. Meng, H. Wei, R. Yang, S. Lord, H. Van Den Dool, A. Kumar,
+W. Wang, C. Long, M. Chelliah, Y. Xue, B. Huang, J.-K. Schemm,
+W. Ebisuzaki, R. Lin, P. Xie, M. Chen, S. Zhou, W. Higgins, C.-Z. Zou,
+Q. Liu, Y. Chen, Y. Han, L. Cucurull, R. W. Reynolds, G. Rutledge, and
+M. Goldberg (2010), The NCEP Climate Forecast System Reanalysis,
+Bulletin of the American Meteorological Society, 91(8), 1015-1057,
+doi:10.1175/2010BAMS3001.1.
